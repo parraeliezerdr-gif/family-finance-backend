@@ -14,10 +14,13 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: [
+      'http://localhost:3000',
+      'https://family-finance-frontend-tau.vercel.app',
+    ],
     credentials: true,
   });
 
-  await app.listen(3001);
+  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();
