@@ -35,17 +35,30 @@ enum TransactionType {
   CREDIT_CARD_PAYMENT
 }
 
+enum PeriodType {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum GoalStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 model Profile {
-  id         String   @id @default(uuid())
-  authUserId String   @unique
-  email      String   @unique
-  fullName   String?
-  avatarUrl  String?
+  id           String   @id @default(uuid())
+  authUserId   String   @unique
+  email        String   @unique
+  fullName     String?
+  avatarUrl    String?
+  passwordHash String
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  memberships HouseholdMember[]
+  memberships  HouseholdMember[]
   transactions Transaction[]
 
   @@map("profiles")
@@ -63,6 +76,8 @@ model Household {
   accounts     Account[]
   categories   Category[]
   transactions Transaction[]
+  budgets      Budget[]
+  goals        Goal[]
 
   @@map("households")
 }
@@ -148,7 +163,8 @@ model Category {
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  splits TransactionSplit[]
+  splits  TransactionSplit[]
+  budgets Budget[]
 
   @@unique([householdId, name])
 
@@ -202,4 +218,51 @@ model TransactionSplit {
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@map("transaction_splits")
+}
+
+model Budget {
+  id String @id @default(uuid())
+
+  householdId String
+  categoryId  String
+
+  amount Decimal @db.Decimal(18, 2)
+
+  periodType PeriodType @default(MONTHLY)
+
+  startDate DateTime
+  endDate   DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("budgets")
+}
+
+model Goal {
+  id String @id @default(uuid())
+
+  householdId String
+
+  name        String
+  description String?
+
+  targetAmount  Decimal @db.Decimal(18, 2)
+  currentAmount Decimal @db.Decimal(18, 2) @default(0)
+
+  targetDate DateTime?
+
+  status GoalStatus @default(IN_PROGRESS)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
 }

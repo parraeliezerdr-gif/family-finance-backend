@@ -1,0 +1,57 @@
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export enum TransactionType {
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
+  TRANSFER = 'TRANSFER',
+  LOAN_RECEIVED = 'LOAN_RECEIVED',
+  LOAN_GIVEN = 'LOAN_GIVEN',
+  CREDIT_CARD_PAYMENT = 'CREDIT_CARD_PAYMENT',
+}
+
+export class CreateSplitDto {
+  @IsUUID()
+  categoryId: string;
+
+  @IsNumber()
+  @Min(0)
+  amount: number;
+}
+
+export class CreateTransactionDto {
+  @IsUUID()
+  householdId: string;
+
+  @IsUUID()
+  accountId: string;
+
+  @IsEnum(TransactionType)
+  type: TransactionType;
+
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsDateString()
+  transactionDate: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSplitDto)
+  splits: CreateSplitDto[];
+}
