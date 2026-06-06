@@ -22,7 +22,8 @@ export enum TransactionType {
 
 export class CreateSplitDto {
   @IsUUID()
-  categoryId: string;
+  @IsOptional()
+  categoryId?: string;
 
   @IsNumber()
   @Min(0)
@@ -53,5 +54,6 @@ export class CreateTransactionDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSplitDto)
-  splits: CreateSplitDto[];
+  @IsOptional()
+  splits?: CreateSplitDto[];
 }

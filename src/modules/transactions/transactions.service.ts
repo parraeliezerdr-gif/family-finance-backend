@@ -7,8 +7,14 @@ export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateTransactionDto, profileId: string) {
-    const splitsTotal = dto.splits.reduce((sum, s) => sum + s.amount, 0);
+    const splits = dto.splits ?? [];
 
+    // Si no hay splits, crear uno automático con el monto total sin categoría
+    const effectiveSplits = splits.length === 0
+      ? [{ amount: dto.amount, categoryId: undefined }]
+      : splits;
+
+    const splitsTotal = effectiveSplits.reduce((sum, s) => sum + s.amount, 0);
     if (Math.abs(splitsTotal - dto.amount) > 0.01) {
       throw new BadRequestException(
         `La suma de los splits (${splitsTotal}) debe ser igual al monto total (${dto.amount})`,
@@ -25,8 +31,8 @@ export class TransactionsService {
         description: dto.description,
         transactionDate: new Date(dto.transactionDate),
         splits: {
-          create: dto.splits.map((s) => ({
-            categoryId: s.categoryId,
+          create: effectiveSplits.map((s) => ({
+            categoryId: s.categoryId ?? null,
             amount: s.amount,
           })),
         },
