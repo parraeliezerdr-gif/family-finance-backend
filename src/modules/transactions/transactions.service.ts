@@ -9,9 +9,8 @@ export class TransactionsService {
   async create(dto: CreateTransactionDto, profileId: string) {
     const splits = dto.splits ?? [];
 
-    // Si no hay splits, crear uno automático con el monto total sin categoría
     const effectiveSplits = splits.length === 0
-      ? [{ amount: dto.amount, categoryId: undefined }]
+      ? [{ amount: dto.amount, categoryId: undefined as string | undefined }]
       : splits;
 
     const splitsTotal = effectiveSplits.reduce((sum, s) => sum + s.amount, 0);
@@ -32,7 +31,7 @@ export class TransactionsService {
         transactionDate: new Date(dto.transactionDate),
         splits: {
           create: effectiveSplits.map((s) => ({
-            categoryId: s.categoryId ?? null,
+            ...(s.categoryId ? { categoryId: s.categoryId } : {}),
             amount: s.amount,
           })),
         },
