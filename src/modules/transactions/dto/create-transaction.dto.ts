@@ -37,6 +37,10 @@ export class CreateTransactionDto {
   @IsUUID()
   accountId: string;
 
+  @IsUUID()
+  @IsOptional()
+  toAccountId?: string;
+
   @IsEnum(TransactionType)
   type: TransactionType;
 

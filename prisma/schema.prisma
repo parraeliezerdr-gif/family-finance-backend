@@ -65,8 +65,8 @@ model Profile {
 }
 
 model Household {
-  id        String   @id @default(uuid())
-  name      String
+  id   String @id @default(uuid())
+  name String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -96,7 +96,6 @@ model HouseholdMember {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@unique([profileId, householdId])
-
   @@map("household_members")
 }
 
@@ -104,16 +103,11 @@ model Invitation {
   id String @id @default(uuid())
 
   householdId String
-
-  email String
-
-  role HouseholdRole
-
-  status InvitationStatus @default(PENDING)
-
-  expiresAt DateTime
-
-  createdAt DateTime @default(now())
+  email       String
+  role        HouseholdRole
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -124,23 +118,20 @@ model Account {
   id String @id @default(uuid())
 
   householdId String
+  name        String
+  type        AccountType
 
-  name String
-
-  type AccountType
-
-  currencyCode String @default("COP")
-
+  currencyCode   String  @default("COP")
   initialBalance Decimal @db.Decimal(18, 2)
-
-  isActive Boolean @default(true)
+  isActive       Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
-  transactions Transaction[]
+  transactions      Transaction[] @relation("TransactionFromAccount")
+  incomingTransfers Transaction[] @relation("TransactionToAccount")
 
   @@map("accounts")
 }
@@ -149,15 +140,11 @@ model Category {
   id String @id @default(uuid())
 
   householdId String
-
-  name String
-
-  icon String?
-  color String?
-
-  isDefault Boolean @default(false)
-
-  isArchived Boolean @default(false)
+  name        String
+  icon        String?
+  color       String?
+  isDefault   Boolean @default(false)
+  isArchived  Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -167,7 +154,6 @@ model Category {
   budgets Budget[]
 
   @@unique([householdId, name])
-
   @@map("categories")
 }
 
@@ -175,17 +161,14 @@ model Transaction {
   id String @id @default(uuid())
 
   householdId String
-
   createdById String
+  accountId   String
+  toAccountId String?
 
-  accountId String
+  type   TransactionType
+  amount Decimal         @db.Decimal(18, 2)
 
-  type TransactionType
-
-  amount Decimal @db.Decimal(18, 2)
-
-  description String?
-
+  description   String?
   attachmentUrl String?
 
   transactionDate DateTime
@@ -194,10 +177,9 @@ model Transaction {
   updatedAt DateTime @updatedAt
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  createdBy Profile @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  account   Account   @relation("TransactionFromAccount", fields: [accountId], references: [id], onDelete: Cascade)
+  toAccount Account?  @relation("TransactionToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+  createdBy Profile   @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   splits TransactionSplit[]
 
@@ -208,14 +190,11 @@ model TransactionSplit {
   id String @id @default(uuid())
 
   transactionId String
-
-  categoryId String?
-
-  amount Decimal @db.Decimal(18, 2)
+  categoryId    String?
+  amount        Decimal @db.Decimal(18, 2)
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@map("transaction_splits")
 }
@@ -226,14 +205,11 @@ model Budget {
   householdId String
   categoryId  String
 
-  amount Decimal @db.Decimal(18, 2)
-
+  amount     Decimal    @db.Decimal(18, 2)
   periodType PeriodType @default(MONTHLY)
-
-  startDate DateTime
-  endDate   DateTime?
-
-  isActive Boolean @default(true)
+  startDate  DateTime
+  endDate    DateTime?
+  isActive   Boolean    @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -248,7 +224,6 @@ model Goal {
   id String @id @default(uuid())
 
   householdId String
-
   name        String
   description String?
 
@@ -256,8 +231,7 @@ model Goal {
   currentAmount Decimal @db.Decimal(18, 2) @default(0)
 
   targetDate DateTime?
-
-  status GoalStatus @default(IN_PROGRESS)
+  status     GoalStatus @default(IN_PROGRESS)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

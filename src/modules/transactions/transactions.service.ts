@@ -20,10 +20,15 @@ export class TransactionsService {
       );
     }
 
+    if (dto.type === 'TRANSFER' && !dto.toAccountId) {
+      throw new BadRequestException('Las transferencias requieren una cuenta destino');
+    }
+
     return this.prisma.transaction.create({
       data: {
         householdId: dto.householdId,
         accountId: dto.accountId,
+        toAccountId: dto.toAccountId ?? null,
         createdById: profileId,
         type: dto.type,
         amount: dto.amount,
@@ -37,18 +42,11 @@ export class TransactionsService {
         },
       },
       include: {
-        splits: {
-          include: {
-            category: true,
-          },
-        },
+        splits: { include: { category: true } },
         account: true,
+        toAccount: true,
         createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
+          select: { id: true, fullName: true, email: true },
         },
       },
     });
@@ -59,18 +57,11 @@ export class TransactionsService {
       where: { householdId },
       orderBy: { transactionDate: 'desc' },
       include: {
-        splits: {
-          include: {
-            category: true,
-          },
-        },
+        splits: { include: { category: true } },
         account: true,
+        toAccount: true,
         createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
+          select: { id: true, fullName: true, email: true },
         },
       },
     });
@@ -80,26 +71,17 @@ export class TransactionsService {
     return this.prisma.transaction.findUnique({
       where: { id },
       include: {
-        splits: {
-          include: {
-            category: true,
-          },
-        },
+        splits: { include: { category: true } },
         account: true,
+        toAccount: true,
         createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
+          select: { id: true, fullName: true, email: true },
         },
       },
     });
   }
 
   async remove(id: string) {
-    return this.prisma.transaction.delete({
-      where: { id },
-    });
+    return this.prisma.transaction.delete({ where: { id } });
   }
 }
