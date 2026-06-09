@@ -64,7 +64,6 @@ export class DashboardService {
         }),
       ]);
 
-    // Calcular balance real de cada cuenta
     const accountsWithBalance = await Promise.all(
       accounts.map(async (account) => {
         const income = await this.prisma.transaction.aggregate({
@@ -100,6 +99,7 @@ export class DashboardService {
     const totalIncome = Number(incomeAgg._sum.amount ?? 0);
     const totalExpense = Number(expenseAgg._sum.amount ?? 0);
 
+    // Solo incluir splits con categoryId no nulo
     const topCategoriesRaw: Array<{ categoryId: string; spent: string }> =
       await this.prisma.$queryRawUnsafe(`
         SELECT
@@ -110,6 +110,7 @@ export class DashboardService {
         WHERE
           t."householdId" = '${householdId}'
           AND t.type = 'EXPENSE'
+          AND ts."categoryId" IS NOT NULL
           AND t."transactionDate" >= '${firstOfMonth.toISOString()}'
           AND t."transactionDate" <= '${lastOfMonth.toISOString()}'
         GROUP BY ts."categoryId"
@@ -117,18 +118,23 @@ export class DashboardService {
         LIMIT 5
       `);
 
-    const categoryIds = topCategoriesRaw.map((c) => c.categoryId);
-    const categoryDetails = await this.prisma.category.findMany({
-      where: { id: { in: categoryIds } },
-    });
+    const categoryIds = topCategoriesRaw.map((c) => c.categoryId).filter(Boolean);
+    const categoryDetails = categoryIds.length > 0
+      ? await this.prisma.category.findMany({
+          where: { id: { in: categoryIds } },
+        })
+      : [];
 
-    const topCategoriesWithDetails = topCategoriesRaw.map((tc) => {
-      const detail = categoryDetails.find((c) => c.id === tc.categoryId);
-      return {
-        category: detail,
-        spent: Number(tc.spent),
-      };
-    });
+    const topCategoriesWithDetails = topCategoriesRaw
+      .map((tc) => {
+        const detail = categoryDetails.find((c) => c.id === tc.categoryId);
+        if (!detail) return null;
+        return {
+          category: detail,
+          spent: Number(tc.spent),
+        };
+      })
+      .filter(Boolean);
 
     const budgetsWithProgress = await Promise.all(
       budgets.map(async (budget) => {
