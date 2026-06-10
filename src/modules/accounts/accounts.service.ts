@@ -26,6 +26,7 @@ export class AccountsService {
 
     const accountsWithBalance = await Promise.all(
       accounts.map(async (account) => {
+        // Ingresos y préstamos recibidos
         const income = await this.prisma.transaction.aggregate({
           _sum: { amount: true },
           where: {
@@ -34,6 +35,7 @@ export class AccountsService {
           },
         });
 
+        // Gastos y préstamos dados
         const expense = await this.prisma.transaction.aggregate({
           _sum: { amount: true },
           where: {
@@ -42,15 +44,32 @@ export class AccountsService {
           },
         });
 
-        const totalIncome = Number(income._sum.amount ?? 0);
-        const totalExpense = Number(expense._sum.amount ?? 0);
-        const currentBalance =
-          Number(account.initialBalance) + totalIncome - totalExpense;
+        // Transferencias salientes (cuenta origen)
+        const transferOut = await this.prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            accountId: account.id,
+            type: 'TRANSFER',
+          },
+        });
 
-        return {
-          ...account,
-          currentBalance,
-        };
+        // Transferencias entrantes (cuenta destino)
+        const transferIn = await this.prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            toAccountId: account.id,
+            type: 'TRANSFER',
+          },
+        });
+
+        const currentBalance =
+          Number(account.initialBalance) +
+          Number(income._sum.amount ?? 0) -
+          Number(expense._sum.amount ?? 0) -
+          Number(transferOut._sum.amount ?? 0) +
+          Number(transferIn._sum.amount ?? 0);
+
+        return { ...account, currentBalance };
       }),
     );
 

@@ -42,12 +42,16 @@ export class DashboardService {
         }),
 
         this.prisma.transaction.findMany({
-          where: { householdId },
+          where: {
+            householdId,
+            type: { notIn: ['TRANSFER'] },
+          },
           orderBy: { transactionDate: 'desc' },
           take: 5,
           include: {
             splits: { include: { category: true } },
             account: { select: { id: true, name: true } },
+            toAccount: { select: { id: true, name: true } },
             createdBy: { select: { id: true, fullName: true } },
           },
         }),
@@ -82,10 +86,28 @@ export class DashboardService {
           },
         });
 
+        const transferOut = await this.prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            accountId: account.id,
+            type: 'TRANSFER',
+          },
+        });
+
+        const transferIn = await this.prisma.transaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            toAccountId: account.id,
+            type: 'TRANSFER',
+          },
+        });
+
         const currentBalance =
           Number(account.initialBalance) +
           Number(income._sum.amount ?? 0) -
-          Number(expense._sum.amount ?? 0);
+          Number(expense._sum.amount ?? 0) -
+          Number(transferOut._sum.amount ?? 0) +
+          Number(transferIn._sum.amount ?? 0);
 
         return { ...account, currentBalance };
       }),
@@ -99,7 +121,6 @@ export class DashboardService {
     const totalIncome = Number(incomeAgg._sum.amount ?? 0);
     const totalExpense = Number(expenseAgg._sum.amount ?? 0);
 
-    // Solo incluir splits con categoryId no nulo
     const topCategoriesRaw: Array<{ categoryId: string; spent: string }> =
       await this.prisma.$queryRawUnsafe(`
         SELECT
@@ -129,10 +150,7 @@ export class DashboardService {
       .map((tc) => {
         const detail = categoryDetails.find((c) => c.id === tc.categoryId);
         if (!detail) return null;
-        return {
-          category: detail,
-          spent: Number(tc.spent),
-        };
+        return { category: detail, spent: Number(tc.spent) };
       })
       .filter(Boolean);
 
