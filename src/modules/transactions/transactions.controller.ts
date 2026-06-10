@@ -28,6 +28,11 @@ export class TransactionsController {
     return this.transactionsService.findAll(householdId);
   }
 
+  @Get('loans')
+  findLoansReceived(@Query('householdId') householdId: string) {
+    return this.transactionsService.findLoansReceived(householdId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.transactionsService.findOne(id);

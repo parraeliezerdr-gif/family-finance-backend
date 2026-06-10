@@ -7,6 +7,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -41,6 +42,10 @@ export class CreateTransactionDto {
   @IsOptional()
   toAccountId?: string;
 
+  @IsUUID()
+  @IsOptional()
+  relatedLoanId?: string;
+
   @IsEnum(TransactionType)
   type: TransactionType;
 
@@ -54,6 +59,10 @@ export class CreateTransactionDto {
 
   @IsDateString()
   transactionDate: string;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

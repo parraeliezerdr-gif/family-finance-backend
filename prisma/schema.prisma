@@ -172,6 +172,9 @@ model Transaction {
   attachmentUrl String?
 
   transactionDate DateTime
+  dueDate         DateTime?
+
+  relatedLoanId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -180,6 +183,9 @@ model Transaction {
   account   Account   @relation("TransactionFromAccount", fields: [accountId], references: [id], onDelete: Cascade)
   toAccount Account?  @relation("TransactionToAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
   createdBy Profile   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  relatedLoan    Transaction?  @relation("LoanPayments", fields: [relatedLoanId], references: [id], onDelete: SetNull)
+  loanPayments   Transaction[] @relation("LoanPayments")
 
   splits TransactionSplit[]
 

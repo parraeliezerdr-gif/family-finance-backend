@@ -24,16 +24,31 @@ export class TransactionsService {
       throw new BadRequestException('Las transferencias requieren una cuenta destino');
     }
 
+    if (dto.type === 'LOAN_RECEIVED' && !dto.description) {
+      throw new BadRequestException('Los préstamos recibidos requieren una descripción');
+    }
+
+    if (dto.type === 'LOAN_GIVEN' && dto.relatedLoanId) {
+      const loan = await this.prisma.transaction.findUnique({
+        where: { id: dto.relatedLoanId },
+      });
+      if (!loan || loan.type !== 'LOAN_RECEIVED') {
+        throw new BadRequestException('El préstamo relacionado no es válido');
+      }
+    }
+
     return this.prisma.transaction.create({
       data: {
         householdId: dto.householdId,
         accountId: dto.accountId,
         toAccountId: dto.toAccountId ?? null,
+        relatedLoanId: dto.relatedLoanId ?? null,
         createdById: profileId,
         type: dto.type,
         amount: dto.amount,
         description: dto.description,
         transactionDate: new Date(dto.transactionDate),
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         splits: {
           create: effectiveSplits.map((s) => ({
             ...(s.categoryId ? { categoryId: s.categoryId } : {}),
@@ -45,6 +60,7 @@ export class TransactionsService {
         splits: { include: { category: true } },
         account: true,
         toAccount: true,
+        relatedLoan: true,
         createdBy: {
           select: { id: true, fullName: true, email: true },
         },
@@ -60,9 +76,24 @@ export class TransactionsService {
         splits: { include: { category: true } },
         account: true,
         toAccount: true,
+        relatedLoan: true,
         createdBy: {
           select: { id: true, fullName: true, email: true },
         },
+      },
+    });
+  }
+
+  async findLoansReceived(householdId: string) {
+    return this.prisma.transaction.findMany({
+      where: {
+        householdId,
+        type: 'LOAN_RECEIVED',
+      },
+      orderBy: { transactionDate: 'desc' },
+      include: {
+        account: true,
+        loanPayments: true,
       },
     });
   }
@@ -74,6 +105,8 @@ export class TransactionsService {
         splits: { include: { category: true } },
         account: true,
         toAccount: true,
+        relatedLoan: true,
+        loanPayments: true,
         createdBy: {
           select: { id: true, fullName: true, email: true },
         },
