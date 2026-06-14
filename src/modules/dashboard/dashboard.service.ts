@@ -10,7 +10,7 @@ export class DashboardService {
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    const [accounts, incomeAgg, expenseAgg, recentTransactions, budgets, goals] =
+    const [accounts, incomeAgg, expenseAgg, recentTransactions, budgets, goals, loans] =
       await Promise.all([
         this.prisma.account.findMany({
           where: { householdId, isActive: true },
@@ -23,6 +23,7 @@ export class DashboardService {
           },
         }),
 
+        // Solo ingresos reales, sin préstamos
         this.prisma.transaction.aggregate({
           _sum: { amount: true },
           where: {
@@ -32,6 +33,7 @@ export class DashboardService {
           },
         }),
 
+        // Solo gastos reales, sin préstamos ni transferencias
         this.prisma.transaction.aggregate({
           _sum: { amount: true },
           where: {
@@ -52,6 +54,7 @@ export class DashboardService {
             splits: { include: { category: true } },
             account: { select: { id: true, name: true } },
             toAccount: { select: { id: true, name: true } },
+            relatedLoan: true,
             createdBy: { select: { id: true, fullName: true } },
           },
         }),
@@ -65,6 +68,18 @@ export class DashboardService {
           where: { householdId, status: 'IN_PROGRESS' },
           orderBy: { createdAt: 'desc' },
           take: 3,
+        }),
+
+        // Préstamos recibidos pendientes
+        this.prisma.transaction.findMany({
+          where: {
+            householdId,
+            type: 'LOAN_RECEIVED',
+          },
+          orderBy: { transactionDate: 'desc' },
+          include: {
+            loanPayments: true,
+          },
         }),
       ]);
 
@@ -88,18 +103,12 @@ export class DashboardService {
 
         const transferOut = await this.prisma.transaction.aggregate({
           _sum: { amount: true },
-          where: {
-            accountId: account.id,
-            type: 'TRANSFER',
-          },
+          where: { accountId: account.id, type: 'TRANSFER' },
         });
 
         const transferIn = await this.prisma.transaction.aggregate({
           _sum: { amount: true },
-          where: {
-            toAccountId: account.id,
-            type: 'TRANSFER',
-          },
+          where: { toAccountId: account.id, type: 'TRANSFER' },
         });
 
         const currentBalance =
@@ -141,9 +150,7 @@ export class DashboardService {
 
     const categoryIds = topCategoriesRaw.map((c) => c.categoryId).filter(Boolean);
     const categoryDetails = categoryIds.length > 0
-      ? await this.prisma.category.findMany({
-          where: { id: { in: categoryIds } },
-        })
+      ? await this.prisma.category.findMany({ where: { id: { in: categoryIds } } })
       : [];
 
     const topCategoriesWithDetails = topCategoriesRaw
@@ -188,6 +195,27 @@ export class DashboardService {
       return { ...goal, percentage };
     });
 
+    // Calcular préstamos con saldo pendiente
+    const loansWithBalance = loans.map((loan) => {
+      const totalPaid = loan.loanPayments.reduce(
+        (sum, p) => sum + Number(p.amount),
+        0,
+      );
+      const totalAmount = Number(loan.amount);
+      const pending = totalAmount - totalPaid;
+      const percentage = Math.round((totalPaid / totalAmount) * 100);
+      return {
+        id: loan.id,
+        description: loan.description,
+        amount: totalAmount,
+        paid: totalPaid,
+        pending,
+        percentage,
+        dueDate: loan.dueDate,
+        transactionDate: loan.transactionDate,
+      };
+    }).filter((l) => l.pending > 0);
+
     return {
       balance: {
         total: totalBalance,
@@ -202,6 +230,7 @@ export class DashboardService {
       recentTransactions,
       budgets: budgetsWithProgress,
       goals: goalsWithProgress,
+      loans: loansWithBalance,
     };
   }
 }
