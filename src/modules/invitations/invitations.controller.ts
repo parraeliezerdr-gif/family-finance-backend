@@ -19,8 +19,8 @@ export class InvitationsController {
   constructor(private readonly invitationsService: InvitationsService) {}
 
   @Post()
-  create(@Body() dto: CreateInvitationDto) {
-    return this.invitationsService.create(dto);
+  create(@Body() dto: CreateInvitationDto, @Request() req) {
+    return this.invitationsService.create(dto, req.user.profileId);
   }
 
   @Get()
