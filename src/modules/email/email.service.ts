@@ -3,14 +3,25 @@ import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
-  private readonly resend = new Resend(process.env.RESEND_API_KEY);
+  private readonly resend: Resend | null = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
   private readonly from = process.env.EMAIL_FROM ?? 'onboarding@resend.dev';
   private readonly frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
   private readonly logger = new Logger(EmailService.name);
 
+  private canSend(): boolean {
+    if (!this.resend) {
+      this.logger.warn('RESEND_API_KEY no configurada — correo omitido');
+      return false;
+    }
+    return true;
+  }
+
   async sendVerificationEmail(to: string, fullName: string, code: string) {
+    if (!this.canSend()) return;
     try {
-      await this.resend.emails.send({
+      await this.resend!.emails.send({
         from: this.from,
         to,
         subject: 'Verifica tu cuenta – Évora',
@@ -60,9 +71,10 @@ export class EmailService {
     invitedByName: string;
     invitationId: string;
   }) {
+    if (!this.canSend()) return;
     const link = `${this.frontendUrl}/invite/${params.invitationId}`;
     try {
-      await this.resend.emails.send({
+      await this.resend!.emails.send({
         from: this.from,
         to: params.to,
         subject: `${params.invitedByName} te invitó a ${params.householdName} – Évora`,
