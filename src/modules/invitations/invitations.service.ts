@@ -80,7 +80,11 @@ export class InvitationsService {
       where: { id: profileId },
     });
 
-    if (invitation.email && (!profile || profile.email !== invitation.email)) {
+    if (!profile) {
+      throw new NotFoundException('Perfil no encontrado');
+    }
+
+    if (invitation.email && profile.email !== invitation.email) {
       throw new BadRequestException(
         'Esta invitación no corresponde a tu correo',
       );
@@ -109,9 +113,7 @@ export class InvitationsService {
       }),
     ]);
 
-    if (profile) {
-      this.notifyAdminsOfNewMember(invitation.householdId, profile.fullName ?? profile.email).catch(() => {});
-    }
+    this.notifyAdminsOfNewMember(invitation.householdId, profile.fullName ?? profile.email).catch(() => {});
 
     return member;
   }
