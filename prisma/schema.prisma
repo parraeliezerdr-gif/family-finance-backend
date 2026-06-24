@@ -108,7 +108,7 @@ model Invitation {
   id String @id @default(uuid())
 
   householdId String
-  email       String
+  email       String?
   role        HouseholdRole
   status      InvitationStatus @default(PENDING)
   expiresAt   DateTime

@@ -15,31 +15,35 @@ export class InvitationsService {
   ) {}
 
   async create(dto: CreateInvitationDto, invitedByProfileId: string) {
-    const existing = await this.prisma.invitation.findFirst({
-      where: { householdId: dto.householdId, email: dto.email, status: 'PENDING' },
-    });
-
-    if (existing) {
-      throw new BadRequestException('Ya existe una invitación pendiente para este correo');
+    if (dto.email) {
+      const existing = await this.prisma.invitation.findFirst({
+        where: { householdId: dto.householdId, email: dto.email, status: 'PENDING' },
+      });
+      if (existing) {
+        throw new BadRequestException('Ya existe una invitación pendiente para este correo');
+      }
     }
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    const [invitation, invitedBy] = await Promise.all([
-      this.prisma.invitation.create({
-        data: { householdId: dto.householdId, email: dto.email, role: dto.role, expiresAt },
-        include: { household: { select: { id: true, name: true } } },
-      }),
-      this.prisma.profile.findUnique({ where: { id: invitedByProfileId }, select: { fullName: true, email: true } }),
-    ]);
-
-    await this.emailService.sendInvitationEmail({
-      to: dto.email,
-      householdName: invitation.household.name,
-      invitedByName: invitedBy?.fullName ?? invitedBy?.email ?? 'Un miembro',
-      invitationId: invitation.id,
+    const invitation = await this.prisma.invitation.create({
+      data: { householdId: dto.householdId, email: dto.email ?? null, role: dto.role, expiresAt },
+      include: { household: { select: { id: true, name: true } } },
     });
+
+    if (dto.email) {
+      const invitedBy = await this.prisma.profile.findUnique({
+        where: { id: invitedByProfileId },
+        select: { fullName: true, email: true },
+      });
+      await this.emailService.sendInvitationEmail({
+        to: dto.email,
+        householdName: invitation.household.name,
+        invitedByName: invitedBy?.fullName ?? invitedBy?.email ?? 'Un miembro',
+        invitationId: invitation.id,
+      });
+    }
 
     return invitation;
   }
@@ -76,7 +80,7 @@ export class InvitationsService {
       where: { id: profileId },
     });
 
-    if (!profile || profile.email !== invitation.email) {
+    if (invitation.email && (!profile || profile.email !== invitation.email)) {
       throw new BadRequestException(
         'Esta invitación no corresponde a tu correo',
       );
@@ -105,7 +109,9 @@ export class InvitationsService {
       }),
     ]);
 
-    this.notifyAdminsOfNewMember(invitation.householdId, profile.fullName ?? profile.email).catch(() => {});
+    if (profile) {
+      this.notifyAdminsOfNewMember(invitation.householdId, profile.fullName ?? profile.email).catch(() => {});
+    }
 
     return member;
   }
