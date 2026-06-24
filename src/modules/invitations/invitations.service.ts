@@ -97,11 +97,7 @@ export class InvitationsService {
 
     const [member] = await this.prisma.$transaction([
       this.prisma.householdMember.create({
-        data: {
-          profileId,
-          householdId: invitation.householdId,
-          role: invitation.role,
-        },
+        data: { profileId, householdId: invitation.householdId, role: invitation.role },
       }),
       this.prisma.invitation.update({
         where: { id },
@@ -109,7 +105,28 @@ export class InvitationsService {
       }),
     ]);
 
+    this.notifyAdminsOfNewMember(invitation.householdId, profile.fullName ?? profile.email).catch(() => {});
+
     return member;
+  }
+
+  private async notifyAdminsOfNewMember(householdId: string, newMemberName: string) {
+    const admins = await this.prisma.householdMember.findMany({
+      where: { householdId, role: 'ADMIN' },
+      include: {
+        profile: { select: { email: true, fullName: true } },
+        household: { select: { name: true } },
+      },
+    });
+
+    for (const admin of admins) {
+      await this.emailService.sendNewMemberEmail({
+        to: admin.profile.email,
+        fullName: admin.profile.fullName ?? 'Usuario',
+        newMemberName,
+        householdName: admin.household.name,
+      });
+    }
   }
 
   async revoke(id: string) {
